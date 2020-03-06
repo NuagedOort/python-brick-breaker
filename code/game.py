@@ -2,6 +2,7 @@ import tkinter as tk
 import random
 import math
 import copy
+from AI import AI
 
 # Main class: inherit from tk.Canvas class
 class Game(tk.Canvas):
@@ -35,6 +36,8 @@ class Game(tk.Canvas):
     screenHeight = 500
     screenWidth = bricksWidth*bricksNbByLine
 
+    ai = AI()
+    
     # This method initializes some attributes: the ball, the bar...
     def __init__(self, root):
         tk.Canvas.__init__(self, root, bg="#ffffff", bd=0, highlightthickness=0, relief="ridge", width=self.screenWidth, height=self.screenHeight)
@@ -44,7 +47,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(1)
+        self.level(3)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -105,17 +108,23 @@ class Game(tk.Canvas):
             
         self.updateEffects()
 
+        ballCoords = self.coords(self.ball)
+        barMovement = self.ai.computeMovement((ballCoords[0]+ballCoords[2])/2, (ballCoords[1]+ballCoords[3])/2, self.ballAngle, self.ballSpeed, self.ballRadius)
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
         elif self.keyPressed[1]:
             self.moveBar(game.barSpeed)
+        elif barMovement == -1 :
+            self.moveBar(-self.barSpeed/2)
+        elif barMovement == 1:
+            self.moveBar(self.barSpeed/2)
 
         if not(self.textDisplayed):
             if self.won:
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
             elif self.losed:
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
-        
+       
         self.after(int(1000/60), self.nextFrame)
 
     # This method, called when left or right arrows are pressed,
@@ -189,11 +198,12 @@ class Game(tk.Canvas):
             self.ballAngle = math.radians(180) - self.ballAngle
         elif ballNextCoords[1] < 0:
             self.ballAngle = -self.ballAngle
+        # Collision with the bar
         elif not(self.collision(self.ballNext, self.bar)):
             ballCenter = self.coords(self.ball)[0] + self.ballRadius
             barCenter = self.coords(self.bar)[0] + self.barWidth/2
             angleX = ballCenter - barCenter
-            angleOrigin = (-self.ballAngle) % (3.14159*2)
+            angleOrigin = (-self.ballAngle) % (math.pi*2)
             angleComputed = math.radians(-70/(self.barWidth/2)*angleX + 90)
             self.ballAngle = (1 - (abs(angleX)/(self.barWidth/2))**0.25)*angleOrigin + ((abs(angleX)/(self.barWidth/2))**0.25)*angleComputed
         elif not(self.collision(self.ballNext, self.shield)):
@@ -281,6 +291,13 @@ class Game(tk.Canvas):
             collisionCounter = 4
                 
         return collisionCounter
+
+    def printData(self):
+        print("Ball speed : {}".format(self.ballSpeed))
+        print("Ball angle : {}".format(self.ballAngle))
+        print("Ball Radius : {}".format(self.ballRadius))
+        coords = self.coords(self.ball)
+        print("Ball position [{}, {}]".format((coords[0]+coords[2])/2, (coords[1]+coords[3])/2))
 
 
 # This function is called on key down.
