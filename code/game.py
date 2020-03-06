@@ -36,7 +36,9 @@ class Game(tk.Canvas):
     screenHeight = 500
     screenWidth = bricksWidth*bricksNbByLine
 
+    # Ai properties
     ai = AI()
+    score = 0
     
     # This method initializes some attributes: the ball, the bar...
     def __init__(self, root):
@@ -120,6 +122,8 @@ class Game(tk.Canvas):
         elif barMovement == 1:
             self.moveBar(self.barSpeed)
 
+        print(self.score)
+
         if not(self.textDisplayed):
             if self.won:
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
@@ -190,6 +194,7 @@ class Game(tk.Canvas):
                 else:
                     self.delete(self.bricks[i])
                     del self.bricks[i]
+                self.score += 1
             i += 1
 
         # Collisions computation between ball and edge of screen
