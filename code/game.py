@@ -47,7 +47,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(3)
+        self.level(2)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -100,6 +100,7 @@ class Game(tk.Canvas):
     # This method, called each 1/60 of seconde, computes again
     # the properties of all elements (positions, collisions, effects...).
     def nextFrame(self):
+        self.won = len(self.bricks) == 0
         if self.ballThrown and not(self.textDisplayed):
             self.moveBall()
 
@@ -115,9 +116,9 @@ class Game(tk.Canvas):
         elif self.keyPressed[1]:
             self.moveBar(game.barSpeed)
         elif barMovement == -1 :
-            self.moveBar(-self.barSpeed/2)
+            self.moveBar(-self.barSpeed)
         elif barMovement == 1:
-            self.moveBar(self.barSpeed/2)
+            self.moveBar(self.barSpeed)
 
         if not(self.textDisplayed):
             if self.won:
@@ -190,8 +191,6 @@ class Game(tk.Canvas):
                     self.delete(self.bricks[i])
                     del self.bricks[i]
             i += 1
-
-        self.won = len(self.bricks) == 0
 
         # Collisions computation between ball and edge of screen
         if ballNextCoords[0] < 0 or ballNextCoords[2] > self.screenWidth:
