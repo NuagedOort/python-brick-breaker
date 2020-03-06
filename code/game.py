@@ -112,7 +112,7 @@ class Game(tk.Canvas):
         self.updateEffects()
 
         ballCoords = self.coords(self.ball)
-        barMovement = self.ai.computeMovement((ballCoords[0]+ballCoords[2])/2, (ballCoords[1]+ballCoords[3])/2, self.ballAngle, self.ballSpeed, self.ballRadius)
+        barMovement = self.ai.computeMovement((ballCoords[0]+ballCoords[2])/2, (ballCoords[1]+ballCoords[3])/2, self.ballAngle, self.ballSpeed, self.ballRadius, self.score)
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
         elif self.keyPressed[1]:

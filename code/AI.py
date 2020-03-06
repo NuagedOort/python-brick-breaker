@@ -15,9 +15,9 @@ class AI():
     barSpeed
     '''
 
-    MOVE_LEFT = -1;
-    MOVE_RIGHT = 1;
-    DONT_MOVE = 0;
+    MOVE_LEFT = -1
+    MOVE_RIGHT = 1
+    DONT_MOVE = 0
 
     def __init__(self):
         print("Ready")
@@ -35,12 +35,12 @@ class AI():
         self.episodeNumber = 0
         self.finalReward = 0
 
-    def computeMovement(self, ballPosX, ballPosY, ballAngle, ballSpeed, ballRadius):
+    def computeMovement(self, ballPosX, ballPosY, ballAngle, ballSpeed, ballRadius, score):
         if(ballAngle < -0.2):
             return -1
         elif(ballAngle > 0.2):
             return 1
-    
+
      def train(self, state):
         proba = self.model.predict(state)
 
