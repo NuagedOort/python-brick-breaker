@@ -38,6 +38,9 @@ class Game(tk.Canvas):
         "y": "#f1c40f",
         "o": "#e67e22",
     }
+    # List of brick presence per cell in the bricks grid. 0 means empty, any other float is associated to a color, hence
+    # to a specific brick property
+    brickListOneHot = [0] * (bricksNbByLine*linesNb)
 
     # Screen properties
     screenHeight = 500
@@ -101,6 +104,8 @@ class Game(tk.Canvas):
                 line = i//self.bricksNbByLine
                 if el != ".":
                     self.bricks.append(self.create_rectangle(col*self.bricksWidth, line*self.bricksHeight, (col+1)*self.bricksWidth, (line+1)*self.bricksHeight, fill=self.bricksColors[el], width=2, outline="#ffffff"))
+                    # Normalisation : Color index in dict / Color dict size
+                    self.brickListOneHot[i] = list(self.bricksColors.keys()).index(el) / len(self.bricksColors)
         # If there is not any more level to load, the game is finished and the end of game screen is displayed (with player time).
         except IOError:
             self.displayText("GAME ENDED IN\n" + "%02d mn %02d sec %02d" % (int(self.seconds)//60, int(self.seconds)%60, (self.seconds*100)%100), hide = False)
@@ -145,20 +150,18 @@ class Game(tk.Canvas):
             self.barSpeed / 10.0,
             self.barWidth / self.barWidthEffect,
             1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
-            self.bricks,
+            self.brickListOneHot,
             self.score
             )
-
-        print("Bricks : {}".format(self.bricks))
 
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
         elif self.keyPressed[1]:
             self.moveBar(game.barSpeed)
-        # elif barMovement == -1 :
-        #     self.moveBar(-self.barSpeed)
-        # elif barMovement == 1:
-        #     self.moveBar(self.barSpeed)
+        elif barMovement == -1 :
+            self.moveBar(-self.barSpeed)
+        elif barMovement == 1:
+            self.moveBar(self.barSpeed)
 
     # This method, called when left or right arrows are pressed,
     # moves "x" pixels horizontally the bar, keeping it in the screen.
@@ -221,6 +224,7 @@ class Game(tk.Canvas):
                 # If the brick is yellow (or an other color except red/orange), it is destroyed.
                 else:
                     self.delete(self.bricks[i])
+                    self.brickListOneHot[i] = 0.0
                     del self.bricks[i]
                 self.score += 1
             i += 1
