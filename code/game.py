@@ -59,7 +59,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(1)
+        self.level(2)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -143,7 +143,7 @@ class Game(tk.Canvas):
 
         barMovement = self.ai.computeMovement(
             ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
-            self.ballAngle, 
+            (self.ballAngle % (2*math.pi))/(2*math.pi), 
             self.ballSpeed / 10.0, 
             self.ballRadius / self.ballRadiusEffect,
             ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
@@ -153,6 +153,7 @@ class Game(tk.Canvas):
             self.brickListOneHot,
             self.score
             )
+
 
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
