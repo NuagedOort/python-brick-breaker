@@ -35,7 +35,7 @@ class AI():
         self.episodeNumber = 0
         self.finalReward = 0
 
-    def computeMovement(self, ballPosX, ballPosY, ballAngle, ballSpeed, ballRadius, score):
+    def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
         if(ballAngle < -0.2):
             return -1
         elif(ballAngle > 0.2):
