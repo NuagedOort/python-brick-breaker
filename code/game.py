@@ -13,9 +13,16 @@ class Game(tk.Canvas):
     # Bar properties
     barHeight = 20
     barSpeed = 10
+    barWidth = 100
+    barWidthEffect = 160.0 # Not the cleanest way to normalize, but still unsure of the comportment of effect method
 
     # Ball property
     ballSpeed = 7
+    ballRadius = 7
+    ballRadiusEffect = 17.0
+
+    # Shield properties
+    shieldVisibility = False,
 
     # Bricks properties
     bricks = []
@@ -31,6 +38,9 @@ class Game(tk.Canvas):
         "y": "#f1c40f",
         "o": "#e67e22",
     }
+    # List of brick presence per cell in the bricks grid. 0 means empty, any other float is associated to a color, hence
+    # to a specific brick property
+    brickListOneHot = [0] * (bricksNbByLine*linesNb)
 
     # Screen properties
     screenHeight = 500
@@ -59,6 +69,7 @@ class Game(tk.Canvas):
         self.ballRadius = 7
         self.coords(self.shield, (0, self.screenHeight-5, self.screenWidth, self.screenHeight))
         self.itemconfig(self.shield, fill=self.bricksColors["b"], state="hidden")
+        self.shieldVisibility = False
         self.coords(self.bar, ((self.screenWidth - self.barWidth)/2, self.screenHeight - self.barHeight, (self.screenWidth + self.barWidth)/2, self.screenHeight))
         self.coords(self.ball, (self.screenWidth/2 - self.ballRadius, self.screenHeight - self.barHeight - 2*self.ballRadius, self.screenWidth/2 + self.ballRadius, self.screenHeight - self.barHeight))
         self.itemconfig(self.ball, fill="#2c3e50")
@@ -93,6 +104,8 @@ class Game(tk.Canvas):
                 line = i//self.bricksNbByLine
                 if el != ".":
                     self.bricks.append(self.create_rectangle(col*self.bricksWidth, line*self.bricksHeight, (col+1)*self.bricksWidth, (line+1)*self.bricksHeight, fill=self.bricksColors[el], width=2, outline="#ffffff"))
+                    # Normalisation : Color index in dict / Color dict size
+                    self.brickListOneHot[i] = list(self.bricksColors.keys()).index(el) / len(self.bricksColors)
         # If there is not any more level to load, the game is finished and the end of game screen is displayed (with player time).
         except IOError:
             self.displayText("GAME ENDED IN\n" + "%02d mn %02d sec %02d" % (int(self.seconds)//60, int(self.seconds)%60, (self.seconds*100)%100), hide = False)
@@ -111,18 +124,7 @@ class Game(tk.Canvas):
             
         self.updateEffects()
 
-        ballCoords = self.coords(self.ball)
-        barMovement = self.ai.computeMovement((ballCoords[0]+ballCoords[2])/2, (ballCoords[1]+ballCoords[3])/2, self.ballAngle, self.ballSpeed, self.ballRadius, self.score)
-        if self.keyPressed[0]:
-            self.moveBar(-game.barSpeed)
-        elif self.keyPressed[1]:
-            self.moveBar(game.barSpeed)
-        elif barMovement == -1 :
-            self.moveBar(-self.barSpeed)
-        elif barMovement == 1:
-            self.moveBar(self.barSpeed)
-
-        print(self.score)
+        self.aiAction()
 
         if not(self.textDisplayed):
             if self.won:
@@ -131,6 +133,36 @@ class Game(tk.Canvas):
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
        
         self.after(int(1000/60), self.nextFrame)
+
+    # This method call the game AI and act according to given results
+    def aiAction(self):
+        
+        # Compute coords
+        ballCoords = self.coords(self.ball)
+        barCoords = self.coords(self.bar)
+
+        barMovement = self.ai.computeMovement(
+            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
+            (self.ballAngle % (2*math.pi))/(2*math.pi), 
+            self.ballSpeed / 10.0, 
+            self.ballRadius / self.ballRadiusEffect,
+            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
+            self.barSpeed / 10.0,
+            self.barWidth / self.barWidthEffect,
+            1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
+            self.brickListOneHot,
+            self.score
+            )
+
+
+        if self.keyPressed[0]:
+            self.moveBar(-game.barSpeed)
+        elif self.keyPressed[1]:
+            self.moveBar(game.barSpeed)
+        elif barMovement == -1 :
+            self.moveBar(-self.barSpeed)
+        elif barMovement == 1:
+            self.moveBar(self.barSpeed)
 
     # This method, called when left or right arrows are pressed,
     # moves "x" pixels horizontally the bar, keeping it in the screen.
@@ -180,7 +212,7 @@ class Game(tk.Canvas):
 
                 if not(self.effects["ballFire"][0]):
                     if collision == 1 or collision == 3:
-                        self.ballAngle = math.radians(180) - self.ballAngle
+                        self.ballAngle = math.radians(180) - self.ballAngle     # I mean, eew
                     if collision == 2 or collision == 4:
                         self.ballAngle = -self.ballAngle
                 
@@ -193,6 +225,7 @@ class Game(tk.Canvas):
                 # If the brick is yellow (or an other color except red/orange), it is destroyed.
                 else:
                     self.delete(self.bricks[i])
+                    self.brickListOneHot[i] = 0.0
                     del self.bricks[i]
                 self.score += 1
             i += 1
@@ -252,8 +285,10 @@ class Game(tk.Canvas):
         # at the bottom of the screen (it's like an additional life).
         if self.effects["shield"][0]:
             self.itemconfig(self.shield, fill=self.bricksColors["b"], state="normal")
+            self.shieldVisibility = True
         else:
             self.itemconfig(self.shield, state="hidden")
+            self.shieldVisibility = False
 
         self.effectsPrev = copy.deepcopy(self.effects)
 
@@ -295,13 +330,6 @@ class Game(tk.Canvas):
             collisionCounter = 4
                 
         return collisionCounter
-
-    def printData(self):
-        print("Ball speed : {}".format(self.ballSpeed))
-        print("Ball angle : {}".format(self.ballAngle))
-        print("Ball Radius : {}".format(self.ballRadius))
-        coords = self.coords(self.ball)
-        print("Ball position [{}, {}]".format((coords[0]+coords[2])/2, (coords[1]+coords[3])/2))
 
 
 # This function is called on key down.

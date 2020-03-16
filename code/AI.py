@@ -41,10 +41,10 @@ class AI():
         self.gamma = 0.99
         self.lmbda = 0.95
 
-    def computeMovement(self, ballPosX, ballPosY, ballAngle, ballSpeed, ballRadius, score):
-        if(ballAngle < -0.2):
+    def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
+        if(ballPos[0]-barPos[0] < -0.2):
             return -1
-        elif(ballAngle > 0.2):
+        elif(ballPos[0]-barPos[0] > 0.2):
             return 1
 
     def getActorCriticModels(self, input_dims, output_dims):
