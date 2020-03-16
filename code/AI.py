@@ -1,4 +1,5 @@
 #import keras
+import random
 
 class AI():
 
@@ -36,9 +37,11 @@ class AI():
         self.finalReward = 0
 
     def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
-        if(ballPos[0]-barPos[0] < -0.2):
+        if random.randint(1,6) == 1:
+            return random.randint(-1,1)
+        if(ballPos[0]-barPos[0] < -0.05):
             return -1
-        elif(ballPos[0]-barPos[0] > 0.2):
+        elif(ballPos[0]-barPos[0] > 0.05):
             return 1
 
      def train(self, state):
