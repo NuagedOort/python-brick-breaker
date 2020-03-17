@@ -25,16 +25,13 @@ class AI:
         self.root.bind("<Key>", eventsPress)
         self.root.bind("<KeyRelease>", eventsRelease)
         
-
+# USELESS FOR THE MOMENT
     def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
-        ballX, ballY = ballPos
-        barX, barY = barPos
-        self.currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
-        #print(self.currenState)
-        self.currentReward = score
-        if(ballPos[0]-barPos[0] < -0.2):
+        if random.randint(1,6) == 1:
+            return random.randint(-1,1)
+        if(ballPos[0]-barPos[0] < -0.05):
             return -1
-        elif(ballPos[0]-barPos[0] > 0.2):
+        elif(ballPos[0]-barPos[0] > 0.05):
             return 1
         
     def newGame(self):

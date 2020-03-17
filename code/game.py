@@ -15,12 +15,12 @@ class Game(tk.Canvas):
     barHeight = 20
     barSpeed = 10
     barWidth = 100
-    barWidthEffect = 160.0 # Not the cleanest way to normalize, but still unsure of the comportment of effect method
+    barWidthEffect = barWidth + 60.0 # Not the cleanest way to normalize, but still unsure of the comportment of effect method
 
     # Ball property
     ballSpeed = 7
     ballRadius = 7
-    ballRadiusEffect = 17.0
+    ballRadiusEffect = ballRadius + 10.0
 
     # Shield properties
     shieldVisibility = False,
@@ -60,7 +60,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(2)
+        self.level(5)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -169,11 +169,11 @@ class Game(tk.Canvas):
         barCoords = self.coords(self.bar)
 
         barMovement = self.ai.computeMovement(
-            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
+            ((ballCoords[0]+ballCoords[2])/(2*self.screenWidth), (ballCoords[1]+ballCoords[3])/(2*self.screenHeight)), # Normalized BallPos
             (self.ballAngle % (2*math.pi))/(2*math.pi), 
             self.ballSpeed / 10.0, 
             self.ballRadius / self.ballRadiusEffect,
-            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
+            ((barCoords[0]+barCoords[2])/(2*self.screenWidth), (barCoords[1]+barCoords[3])/(2*self.screenHeight)),     # Normalized BarPos
             self.barSpeed / 10.0,
             self.barWidth / self.barWidthEffect,
             1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
@@ -181,7 +181,6 @@ class Game(tk.Canvas):
             self.score
             )
         '''
-
 
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
@@ -191,7 +190,7 @@ class Game(tk.Canvas):
             self.moveBar(-self.barSpeed)
         elif barMovement == 1:
             self.moveBar(self.barSpeed)
-        # is barMoment == 0: do nothing
+        # is barMoment == 2: do nothing
 
     # This method, called when left or right arrows are pressed,
     # moves "x" pixels horizontally the bar, keeping it in the screen.
@@ -278,6 +277,8 @@ class Game(tk.Canvas):
                 self.effects["shield"][0] = 0
             else :
                 self.losed = True
+        elif (self.coords(self.ball))[0] < 0:
+            self.losed = True
 
         self.move(self.ball, self.ballSpeed*math.cos(self.ballAngle), -self.ballSpeed*math.sin(self.ballAngle))
         self.coords(self.ballNext, tk._flatten(self.coords(self.ball)))
