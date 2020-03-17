@@ -2,7 +2,8 @@ import tkinter as tk
 import random
 import math
 import copy
-from AI import AI
+import os
+#from AI import AI
 
 # Main class: inherit from tk.Canvas class
 class Game(tk.Canvas):
@@ -47,7 +48,7 @@ class Game(tk.Canvas):
     screenWidth = bricksWidth*bricksNbByLine
 
     # Ai properties
-    ai = AI()
+    #ai = AI()
     score = 0
     
     # This method initializes some attributes: the ball, the bar...
@@ -124,19 +125,45 @@ class Game(tk.Canvas):
             
         self.updateEffects()
 
-        self.aiAction()
+        #self.aiAction()
 
         if not(self.textDisplayed):
             if self.won:
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
             elif self.losed:
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
-       
-        self.after(int(1000/60), self.nextFrame)
 
+        # Compute coords
+        ballCoords = self.coords(self.ball)
+        barCoords = self.coords(self.bar)
+
+        return self.getState(
+            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
+            (self.ballAngle % (2*math.pi))/(2*math.pi), 
+            self.ballSpeed / 10.0, 
+            self.ballRadius / self.ballRadiusEffect,
+            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
+            self.barSpeed / 10.0,
+            self.barWidth / self.barWidthEffect,
+            1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
+            self.brickListOneHot,
+            self.score
+            )
+       
+        #self.after(int(1000/60), self.nextFrame)
+
+    def getState(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
+        ballX, ballY = ballPos
+        barX, barY = barPos
+        currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
+        #print(self.currenState)
+        currentReward = score
+        return currenState, currentReward, False
+
+    
     # This method call the game AI and act according to given results
-    def aiAction(self):
-        
+    def aiAction(self, barMovement):
+        '''
         # Compute coords
         ballCoords = self.coords(self.ball)
         barCoords = self.coords(self.bar)
@@ -153,16 +180,18 @@ class Game(tk.Canvas):
             self.brickListOneHot,
             self.score
             )
+        '''
 
 
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)
         elif self.keyPressed[1]:
             self.moveBar(game.barSpeed)
-        elif barMovement == -1 :
+        elif barMovement == 0 :
             self.moveBar(-self.barSpeed)
         elif barMovement == 1:
             self.moveBar(self.barSpeed)
+        # is barMoment == 0: do nothing
 
     # This method, called when left or right arrows are pressed,
     # moves "x" pixels horizontally the bar, keeping it in the screen.
@@ -299,11 +328,11 @@ class Game(tk.Canvas):
 
     # This method displays some text.
     def displayText(self, text, hide = True, callback = None):
-        self.textDisplayed = True
+        self.textDisplayed = False
         self.textContainer = self.create_rectangle(0, 0, self.screenWidth, self.screenHeight, fill="#ffffff", width=0, stipple="gray50")
         self.text = self.create_text(self.screenWidth/2, self.screenHeight/2, text=text, font=("Arial", 25), justify="center")
-        if hide:
-            self.after(3000, self.hideText)
+        #if hide:
+            #self.after(3000, self.hideText)
         if callback != None:
             self.after(3000, callback)
 
@@ -331,35 +360,3 @@ class Game(tk.Canvas):
                 
         return collisionCounter
 
-
-# This function is called on key down.
-def eventsPress(event):
-    global game, hasEvent
-
-    if event.keysym == "Left":
-        game.keyPressed[0] = 1
-    elif event.keysym == "Right":
-        game.keyPressed[1] = 1
-    elif event.keysym == "space" and not(game.textDisplayed):
-        game.ballThrown = True
-
-# This function is called on key up.
-def eventsRelease(event):
-    global game, hasEvent
-    
-    if event.keysym == "Left":
-        game.keyPressed[0] = 0
-    elif event.keysym == "Right":
-        game.keyPressed[1] = 0
-
-
-# Initialization of the window
-root = tk.Tk()
-root.title("Brick Breaker")
-root.resizable(0,0)
-root.bind("<Key>", eventsPress)
-root.bind("<KeyRelease>", eventsRelease)
-
-# Starting up of the game
-game = Game(root)
-root.mainloop()
