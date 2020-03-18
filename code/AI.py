@@ -17,13 +17,6 @@ class AI:
         self.gamma = 0.99 #discountingFactor
         self.lmbda = 0.95 #smoothing parameter
 
-        # game variables
-        # Initialization of the window
-        self.root = tk.Tk()
-        self.root.title("Brick Breaker")
-        self.root.resizable(0,0)
-        self.root.bind("<Key>", eventsPress)
-        self.root.bind("<KeyRelease>", eventsRelease)
         
 # USELESS FOR THE MOMENT
     def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
@@ -35,14 +28,15 @@ class AI:
             return 1
         
     def newGame(self):
+        print("NEW GAME")
         game = Game(self.root)
-        #self.root.mainloop()
+        game.ballThrown = True
 
     def train(self):
         initialState, initialScore, isGameFinished = game.nextFrame()
     
         numberOfActions = 3
-        ppoSteps = 12
+        ppoSteps = 1024
         endOfTrain = False
         bestReward = 0
         iters = 0
@@ -64,11 +58,10 @@ class AI:
             # collects experiences
             for i in range(ppoSteps) :
                 inputState = keras.backend.expand_dims(initialState, 0)
-                #print("Ball: ", initialState[0], initialState[1], "Bar: ", initialState[5], initialState[6])
+                #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
                 actionDist = self.actorModel.predict([inputState], steps=1) #returns a probability for each action
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
                 #print("[ACTIONS_PROBA]", actionDist)
-                #print("[VALUE]", qValue)
                 action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
                 #print("[ACTION]", action)
                 actionOnehot = np.zeros(numberOfActions)
@@ -82,10 +75,8 @@ class AI:
                 actions.append(action)
                 actionsOnehot.append(actionOnehot)
                 values.append(qValue)
-                print("VALUES ", len(values))
                 masks.append(mask)
                 rewards.append(reward)
-                print("REWARDS ", len(rewards))
                 actionsProbs.append(actionDist)
 
                 if isGameFinished:
@@ -96,7 +87,6 @@ class AI:
                 
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
-            print(len(values), len(rewards))
             returns, advantages = self.getAdvantages(values, masks, rewards)
             '''
             actorLoss = self.actorModel.fit(
@@ -107,12 +97,12 @@ class AI:
             criticLoss = self.criticModel.fit([states], [np.reshape(returns, newshape=(-1, 1))], shuffle=True, epochs=8,
                                         verbose=True, callbacks=[tensorBoard])
             '''
-            data = [self.testReward() for _ in range(5)]
-            print("[INFO] ", data)
-            avgReward = np.mean(data)
-            print('total test reward=' + str(avgReward))
+            testRewards = [self.testReward() for _ in range(5)]
+            print("[TEST REWARDS] ", testRewards)
+            avgReward = np.mean(testRewards)
+            print('Average test reward=' + str(avgReward))
             if avgReward > bestReward:
-                print('best reward=' + str(avgReward))
+                print('Best reward=' + str(avgReward))
                 #actorModel.save('model_actor_{}_{}.hdf5'.format(iters, avg_reward))
                 #criticModel.save('model_critic_{}_{}.hdf5'.format(iters, avg_reward))
                 bestReward = avgReward
@@ -155,7 +145,6 @@ class AI:
 
     # computes reward over time (your action was correct if you win 3 turns after, for example)
     def getAdvantages(self, values, masks, rewards):
-        print("MA ", len(rewards))
         advantages = []
         gae = 0 #Generalized Advantage Estimation (method used)
         for i in reversed(range(len(rewards))):
@@ -163,7 +152,6 @@ class AI:
             gae = delta + self.gamma * self.lmbda * masks[i] * gae
             advantages.insert(0, gae + values[i])
 
-        print("ICI ", len(advantages), len(values))
         adv = np.array(advantages) - values[:-1]
         return advantages, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
 
@@ -190,7 +178,6 @@ class AI:
         state, _, _ = game.nextFrame()
         done = False
         totalReward = 0
-        print('testing...')
         limit = 0
         while not done:
             stateInput = keras.backend.expand_dims(state, 0)
@@ -229,6 +216,11 @@ def eventsRelease(event):
 # MAIN
 ai = AI()
 # Starting up of the game
+root = tk.Tk()
+root.title("Brick Breaker")
+root.resizable(0,0)
+#root.bind("<Key>", eventsPress)
+#root.bind("<KeyRelease>", eventsRelease)
 game = Game(ai.root)
 game.ballThrown = True
 ai.train()
