@@ -28,9 +28,8 @@ class AI:
             return 1
         
     def newGame(self):
-        #print("NEW GAME")
-        game = Game(root)
-        game.ballThrown = True
+        print("NEW GAME")
+        game.reset()
 
     def train(self):
         initialState, _, _ = game.nextFrame()
@@ -69,8 +68,6 @@ class AI:
 
                 game.aiAction(action)
                 nextState, reward, isGameFinished = game.nextFrame()
-                #if isGameFinished:
-                    #print("GAME FINISHED at iteration: ", i)
                 mask = not isGameFinished
 
                 states.append(initialState)
@@ -95,7 +92,7 @@ class AI:
             actorLoss = self.actorModel.fit(
                 fitStates,
                 actions,
-                verbose=True,
+                verbose=False,
                 shuffle=True,
                 epochs=8
             )
@@ -103,7 +100,7 @@ class AI:
             criticLoss = self.criticModel.fit(
                 fitStates,
                 actions,
-                verbose=True,
+                verbose=False,
                 shuffle=True,
                 epochs=8
             )
@@ -205,43 +202,13 @@ class AI:
         return totalReward
 
 
-# This function is called on key down.
-def eventsPress(event):
-    global game, hasEvent
-
-    if event.keysym == "Left":
-        game.keyPressed[0] = 1
-    elif event.keysym == "Right":
-        game.keyPressed[1] = 1
-    elif event.keysym == "space" and not(game.textDisplayed):
-        game.ballThrown = True
-
-# This function is called on key up.
-def eventsRelease(event):
-    global game, hasEvent
-    
-    if event.keysym == "Left":
-        game.keyPressed[0] = 0
-    elif event.keysym == "Right":
-        game.keyPressed[1] = 0
-
 if __name__ == "__main__":
     ai = AI()
     # Starting up of the game
     root = tk.Tk()
     root.title("Brick Breaker")
     root.resizable(0,0)
-    #root.bind("<Key>", eventsPress)
-    #root.bind("<KeyRelease>", eventsRelease)
     game = Game(root)
     game.ballThrown = True
     ai.train()
-    # IDEE : passer par thread pour lancer le jeu ET le train, mais erreur au lancement
-    '''
-    if os.fork() > 0:
-        print("[INFO] LANCEMENT DU JEU")
-        #root.mainloop()
-    else:
-        print("[INFO] LANCEMENT DU TRAIN")
-        ai.train()
-    '''
+

@@ -50,9 +50,6 @@ class Game(tk.Canvas):
     # Screen properties
     screenHeight = 500
     screenWidth = bricksWidth*bricksNbByLine
-
-    # Ai properties
-    score = 0
     
     # This method initializes some attributes: the ball, the bar...
     def __init__(self, root):
@@ -155,7 +152,6 @@ class Game(tk.Canvas):
             self.barWidth / self.barWidthEffect,
             1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
             self.brickListOneHot,
-            self.score
             )
 
         if self.keyPressed[0]:
@@ -231,7 +227,6 @@ class Game(tk.Canvas):
                     self.delete(self.bricks[i])
                     self.brickListOneHot[i] = 0.0
                     del self.bricks[i]
-                self.score += 1
             i += 1
 
         # Collisions computation between ball and edge of screen
@@ -305,10 +300,11 @@ class Game(tk.Canvas):
 
     # This method displays some text.
     def displayText(self, text, hide = True, callback = None):
-        self.textDisplayed = False
+        self.textDisplayed = True
         self.textContainer = self.create_rectangle(0, 0, self.screenWidth, self.screenHeight, fill="#ffffff", width=0, stipple="gray50")
         self.text = self.create_text(self.screenWidth/2, self.screenHeight/2, text=text, font=("Arial", 25), justify="center")
-        #if hide:
+        if hide:
+            self.hideText()
             #self.after(3000, self.hideText)
         if callback != None:
             self.after(3000, callback)
@@ -338,7 +334,7 @@ class Game(tk.Canvas):
         return collisionCounter
 
 
-def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
+def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList):
     ballX, ballY = ballPos
     barX, barY = barPos
     currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
@@ -350,6 +346,25 @@ def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed,
 
     return action
 
+# This function is called on key down.
+def eventsPress(event):
+    global game, hasEvent
+
+    if event.keysym == "Left":
+        game.keyPressed[0] = 1
+    elif event.keysym == "Right":
+        game.keyPressed[1] = 1
+    elif event.keysym == "space" and not(game.textDisplayed):
+        game.ballThrown = True
+
+# This function is called on key up.
+def eventsRelease(event):
+    global game, hasEvent
+    
+    if event.keysym == "Left":
+        game.keyPressed[0] = 0
+    elif event.keysym == "Right":
+        game.keyPressed[1] = 0
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -359,8 +374,8 @@ if __name__ == "__main__":
         root = tk.Tk()
         root.title("Brick Breaker")
         root.resizable(0,0)
-        #root.bind("<Key>", eventsPress)
-        #root.bind("<KeyRelease>", eventsRelease)
+        root.bind("<Key>", eventsPress)
+        root.bind("<KeyRelease>", eventsRelease)
         game = Game(root)
         game.ballThrown = True
 

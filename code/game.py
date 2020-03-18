@@ -329,10 +329,11 @@ class Game(tk.Canvas):
 
     # This method displays some text.
     def displayText(self, text, hide = True, callback = None):
-        self.textDisplayed = False
+        self.textDisplayed = True
         self.textContainer = self.create_rectangle(0, 0, self.screenWidth, self.screenHeight, fill="#ffffff", width=0, stipple="gray50")
         self.text = self.create_text(self.screenWidth/2, self.screenHeight/2, text=text, font=("Arial", 25), justify="center")
-        #if hide:
+        if hide:
+            self.hideText()
             #self.after(3000, self.hideText)
         if callback != None:
             self.after(3000, callback)
