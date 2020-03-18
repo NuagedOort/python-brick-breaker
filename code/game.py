@@ -158,7 +158,7 @@ class Game(tk.Canvas):
         currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
         #print(self.currenState)
         currentReward = score
-        return currenState, currentReward, False
+        return currenState, currentReward, (self.losed or self.won)
 
     
     # This method call the game AI and act according to given results

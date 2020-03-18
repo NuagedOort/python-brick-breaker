@@ -28,12 +28,12 @@ class AI:
             return 1
         
     def newGame(self):
-        print("NEW GAME")
+        #print("NEW GAME")
         game = Game(root)
         game.ballThrown = True
 
     def train(self):
-        initialState, initialScore, isGameFinished = game.nextFrame()
+        initialState, _, _ = game.nextFrame()
     
         numberOfActions = 3
         ppoSteps = 1024
@@ -69,6 +69,8 @@ class AI:
 
                 game.aiAction(action)
                 nextState, reward, isGameFinished = game.nextFrame()
+                #if isGameFinished:
+                    #print("GAME FINISHED at iteration: ", i)
                 mask = not isGameFinished
 
                 states.append(initialState)
@@ -81,7 +83,7 @@ class AI:
 
                 if isGameFinished:
                     self.newGame()
-                    initialState, reward, isGameFinished = game.nextFrame()
+                    initialState, _, _ = game.nextFrame()
                 else:
                     initialState = nextState
                 
@@ -89,23 +91,32 @@ class AI:
             values.append(qValue)
             returns, advantages = self.getAdvantages(values, masks, rewards)
             
-            '''
+            fitStates = np.asarray(states)
             actorLoss = self.actorModel.fit(
-                [states, actionsProbs, advantages, np.reshape(rewards, newshape=(-1, 1, 1)), values[:-1]],
-                [(np.reshape(actionsOnehot, newshape=(-1, numberOfActions)))], verbose=True, shuffle=True, epochs=8,
-                callbacks=[tensorBoard])
+                fitStates,
+                actions,
+                verbose=True,
+                shuffle=True,
+                epochs=8
+            )
             
-            criticLoss = self.criticModel.fit([states], [np.reshape(returns, newshape=(-1, 1))], shuffle=True, epochs=8,
-                                        verbose=True, callbacks=[tensorBoard])
-            '''
+            criticLoss = self.criticModel.fit(
+                fitStates,
+                actions,
+                verbose=True,
+                shuffle=True,
+                epochs=8
+            )
+
+            
             testRewards = [self.testReward() for _ in range(5)]
             print("[TEST REWARDS] ", testRewards)
             avgReward = np.mean(testRewards)
             print('Average test reward=' + str(avgReward))
             if avgReward > bestReward:
                 print('Best reward=' + str(avgReward))
-                #actorModel.save('model_actor_{}_{}.hdf5'.format(iters, avg_reward))
-                #criticModel.save('model_critic_{}_{}.hdf5'.format(iters, avg_reward))
+                self.actorModel.save('model_actor_{}_{}.hdf5'.format(iters, avgReward))
+                self.criticModel.save('model_critic_{}_{}.hdf5'.format(iters, avgReward))
                 bestReward = avgReward
             if bestReward > 0.9 and iters > maxIters:
                 endOfTrain = True
@@ -117,9 +128,9 @@ class AI:
     def getActorCriticModels(self, input_dims, output_dims):
         # predicts the next action
         actorModel = Sequential()
-        actorModel.add(Dense(units=200,input_dim=input_dims, activation='relu', kernel_initializer='glorot_uniform'))
+        actorModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
         actorModel.add(Dense(units=output_dims, activation='softmax', kernel_initializer='RandomNormal'))
-        actorModel.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')    
+        actorModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')    
         '''
         actorModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
             oldpolicy_probs=oldpolicyProbs,
@@ -130,9 +141,9 @@ class AI:
 
         # evaluates the action
         criticModel = Sequential()
-        criticModel.add(Dense(units=200,input_dim=input_dims, activation='relu', kernel_initializer='glorot_uniform'))
-        criticModel.add(Dense(units=output_dims, activation='sigmoid', kernel_initializer='RandomNormal'))  
-        criticModel.compile(optimizer=Adam(lr=1e-4), loss='mse')
+        criticModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
+        criticModel.add(Dense(units=output_dims, activation='tanh', kernel_initializer='RandomNormal'))  
+        criticModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')
         '''     
         criticModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
             oldpolicy_probs=oldpolicyrobs,
@@ -214,23 +225,23 @@ def eventsRelease(event):
     elif event.keysym == "Right":
         game.keyPressed[1] = 0
 
-# MAIN
-ai = AI()
-# Starting up of the game
-root = tk.Tk()
-root.title("Brick Breaker")
-root.resizable(0,0)
-#root.bind("<Key>", eventsPress)
-#root.bind("<KeyRelease>", eventsRelease)
-game = Game(root)
-game.ballThrown = True
-ai.train()
-# IDEE : passer par thread pour lancer le jeu ET le train, mais erreur au lancement
-'''
-if os.fork() > 0:
-    print("[INFO] LANCEMENT DU JEU")
-    #ai.root.mainloop()
-else:
-    print("[INFO] LANCEMENT DU TRAIN")
+if __name__ == "__main__":
+    ai = AI()
+    # Starting up of the game
+    root = tk.Tk()
+    root.title("Brick Breaker")
+    root.resizable(0,0)
+    #root.bind("<Key>", eventsPress)
+    #root.bind("<KeyRelease>", eventsRelease)
+    game = Game(root)
+    game.ballThrown = True
     ai.train()
-'''
+    # IDEE : passer par thread pour lancer le jeu ET le train, mais erreur au lancement
+    '''
+    if os.fork() > 0:
+        print("[INFO] LANCEMENT DU JEU")
+        #root.mainloop()
+    else:
+        print("[INFO] LANCEMENT DU TRAIN")
+        ai.train()
+    '''
