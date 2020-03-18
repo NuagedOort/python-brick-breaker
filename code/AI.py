@@ -49,28 +49,28 @@ class AI:
         maxIters = 50
         tensorBoard = TensorBoard(log_dir='./logs')
 
-        states = [] #each state encountered 
-        actions = [] #each actions taken
-        values = [] #from the critic model
-        masks = [] #used to separate each game
-        rewards = [] #each reward associating with each state
-        actionsProbs = [] #probability for each action for each turn
-        actionsOnehot = [] #each action taken but in one-hot form
-
         self.actorModel, self.criticModel = self.getActorCriticModels(len(initialState), numberOfActions)
 
         while not endOfTrain:
 
+            states = [] #each state encountered 
+            actions = [] #each actions taken
+            values = [] #from the critic model
+            masks = [] #used to separate each game
+            rewards = [] #each reward associating with each state
+            actionsProbs = [] #probability for each action for each turn
+            actionsOnehot = [] #each action taken but in one-hot form
+
             # collects experiences
             for i in range(ppoSteps) :
                 inputState = keras.backend.expand_dims(initialState, 0)
-                print("Ball: ", initialState[0], initialState[1], "Bar: ", initialState[5], initialState[6])
+                #print("Ball: ", initialState[0], initialState[1], "Bar: ", initialState[5], initialState[6])
                 actionDist = self.actorModel.predict([inputState], steps=1) #returns a probability for each action
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
-                print("[ACTIONS_PROBA]", actionDist)
-                print("[VALUE]", qValue)
+                #print("[ACTIONS_PROBA]", actionDist)
+                #print("[VALUE]", qValue)
                 action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
-                print("[ACTION]", action)
+                #print("[ACTION]", action)
                 actionOnehot = np.zeros(numberOfActions)
                 actionOnehot[action] = 1 #one-hot representation of the action
 
@@ -82,8 +82,10 @@ class AI:
                 actions.append(action)
                 actionsOnehot.append(actionOnehot)
                 values.append(qValue)
+                print("VALUES ", len(values))
                 masks.append(mask)
                 rewards.append(reward)
+                print("REWARDS ", len(rewards))
                 actionsProbs.append(actionDist)
 
                 if isGameFinished:
@@ -94,6 +96,7 @@ class AI:
                 
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
+            print(len(values), len(rewards))
             returns, advantages = self.getAdvantages(values, masks, rewards)
             '''
             actorLoss = self.actorModel.fit(
@@ -116,6 +119,7 @@ class AI:
             if bestReward > 0.9 and iters > maxIters:
                 endOfTrain = True
             iters += 1
+            self.newGame()
         
     
     # Get the 2 models used for train
@@ -123,8 +127,8 @@ class AI:
         # predicts the next action
         actorModel = Sequential()
         actorModel.add(Dense(units=200,input_dim=input_dims, activation='relu', kernel_initializer='glorot_uniform'))
-        actorModel.add(Dense(units=output_dims, activation='sigmoid', kernel_initializer='RandomNormal'))
-        actorModel.compile(optimizer=Adam(lr=1e-4), loss='mse')    
+        actorModel.add(Dense(units=output_dims, activation='softmax', kernel_initializer='RandomNormal'))
+        actorModel.compile(optimizer=Adam(lr=1e-4), loss='categorical_crossentropy')    
         '''
         actorModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
             oldpolicy_probs=oldpolicyProbs,
