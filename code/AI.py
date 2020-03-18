@@ -29,7 +29,7 @@ class AI:
         
     def newGame(self):
         print("NEW GAME")
-        game = Game(self.root)
+        game = Game(root)
         game.ballThrown = True
 
     def train(self):
@@ -88,6 +88,7 @@ class AI:
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
             returns, advantages = self.getAdvantages(values, masks, rewards)
+            
             '''
             actorLoss = self.actorModel.fit(
                 [states, actionsProbs, advantages, np.reshape(rewards, newshape=(-1, 1, 1)), values[:-1]],
@@ -221,7 +222,7 @@ root.title("Brick Breaker")
 root.resizable(0,0)
 #root.bind("<Key>", eventsPress)
 #root.bind("<KeyRelease>", eventsRelease)
-game = Game(ai.root)
+game = Game(root)
 game.ballThrown = True
 ai.train()
 # IDEE : passer par thread pour lancer le jeu ET le train, mais erreur au lancement
