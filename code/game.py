@@ -50,6 +50,7 @@ class Game(tk.Canvas):
     # Ai properties
     #ai = AI()
     score = 0
+    lastScore = 0 #to compute reward
     
     # This method initializes some attributes: the ball, the bar...
     def __init__(self, root):
@@ -60,12 +61,13 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(5)
+        self.level(1)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
     # resets all the elements properties (size, position...).
     def reset(self):
+        self.score = 0
         self.barWidth = 100
         self.ballRadius = 7
         self.coords(self.shield, (0, self.screenHeight-5, self.screenWidth, self.screenHeight))
@@ -115,7 +117,7 @@ class Game(tk.Canvas):
 
     # This method, called each 1/60 of seconde, computes again
     # the properties of all elements (positions, collisions, effects...).
-    def nextFrame(self):
+    def nextFrameCycle(self, numberOfFrames):
         self.won = len(self.bricks) == 0
         if self.ballThrown and not(self.textDisplayed):
             self.moveBall()
@@ -132,6 +134,15 @@ class Game(tk.Canvas):
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
             elif self.losed:
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
+        
+
+        if numberOfFrames < 10:
+            numberOfFrames = numberOfFrames + 1
+            self.after(int(1000/60), self.nextFrameCycle(numberOfFrames))
+
+
+    def nextFrame(self):
+        self.nextFrameCycle(0)
 
         # Compute coords
         ballCoords = self.coords(self.ball)
@@ -150,14 +161,21 @@ class Game(tk.Canvas):
             self.score
             )
        
-        #self.after(int(1000/60), self.nextFrame)
 
     def getState(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
         ballX, ballY = ballPos
         barX, barY = barPos
         currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
-        #print(self.currenState)
-        currentReward = score
+        
+        if self.score == self.lastScore: # no changement
+            currentReward = -0.5
+        elif self.score > self.lastScore: # good movement
+            currentReward = 2
+            self.lastScore = self.score
+        else: # bad movement
+            currentReward = -1
+            self.lastScore = self.score
+
         return currenState, currentReward, (self.losed or self.won)
 
     

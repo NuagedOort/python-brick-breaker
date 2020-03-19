@@ -1,6 +1,6 @@
 import keras
-from keras.models import Sequential
-from keras.layers import Activation, Dense
+from keras.models import Sequential, Model
+from keras.layers import Activation, Dense, Input
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
 import numpy as np
@@ -10,39 +10,31 @@ from game import Game
 
 class AI:
     def __init__(self):
-        print("Ready")
-        #clipping_val = 0.2
-
         # training variables
         self.gamma = 0.99 #discountingFactor
         self.lmbda = 0.95 #smoothing parameter
+        self.gameLevel = 1
+        self.maxScore = 30 #number of bricks according to the level
 
-        
-# USELESS FOR THE MOMENT
-    def computeMovement(self, ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList, score):
-        if random.randint(1,6) == 1:
-            return random.randint(-1,1)
-        if(ballPos[0]-barPos[0] < -0.05):
-            return -1
-        elif(ballPos[0]-barPos[0] > 0.05):
-            return 1
-        
-    def newGame(self):
-        print("NEW GAME")
-        game.reset()
 
     def train(self):
+        game.level(self.gameLevel)
+        game.ballThrown = True
         initialState, _, _ = game.nextFrame()
     
         numberOfActions = 3
-        ppoSteps = 1024
+        ppoSteps = 500
         endOfTrain = False
-        bestReward = 0
+        bestReward = - 1000
         iters = 0
         maxIters = 50
-        tensorBoard = TensorBoard(log_dir='./logs')
 
-        self.actorModel, self.criticModel = self.getActorCriticModels(len(initialState), numberOfActions)
+        dummyN = np.zeros((1, 1, numberOfActions))
+        dummy1 = np.zeros((1, 1, 1))
+
+        self.actorModel = self.getActorModel(len(initialState), numberOfActions)
+        self.criticModel = self.getCriticModel(len(initialState), numberOfActions)
+
 
         while not endOfTrain:
 
@@ -56,9 +48,12 @@ class AI:
 
             # collects experiences
             for i in range(ppoSteps) :
+                if i % 10 == 0 :
+                    print(i)
+
                 inputState = keras.backend.expand_dims(initialState, 0)
                 #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
-                actionDist = self.actorModel.predict([inputState], steps=1) #returns a probability for each action
+                actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
                 #print("[ACTIONS_PROBA]", actionDist)
                 action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
@@ -79,7 +74,8 @@ class AI:
                 actionsProbs.append(actionDist)
 
                 if isGameFinished:
-                    self.newGame()
+                    game.level(self.gameLevel)
+                    game.ballThrown = True
                     initialState, _, _ = game.nextFrame()
                 else:
                     initialState = nextState
@@ -87,7 +83,7 @@ class AI:
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
             returns, advantages = self.getAdvantages(values, masks, rewards)
-            
+            '''
             fitStates = np.asarray(states)
             actorLoss = self.actorModel.fit(
                 fitStates,
@@ -96,60 +92,97 @@ class AI:
                 shuffle=True,
                 epochs=8
             )
+            '''
+            fitStates = np.array(states)
+            fitActionsProbs = np.array(actionsProbs)
+            fitAdv = np.array(advantages)
+            fitRewards = np.reshape(rewards, newshape=(-1, 1, 1))
+            fitValues = np.array(values[:-1])
+            self.actorModel.fit(
+                [fitStates, fitActionsProbs, fitAdv, fitRewards, fitValues],
+                [(np.reshape(actionsOnehot, newshape=(-1, numberOfActions)))], 
+                verbose=False, shuffle=True, epochs=8)
             
-            criticLoss = self.criticModel.fit(
+            '''
+            self.criticModel.fit(
                 fitStates,
                 actions,
                 verbose=False,
                 shuffle=True,
                 epochs=8
             )
+            '''
+            self.criticModel.fit(
+                [np.array(states)], 
+                [np.reshape(returns, newshape=(-1,3))], 
+                verbose=False, shuffle=True, epochs=8)
 
-            
+            #print("REWARDS ", rewards)
             testRewards = [self.testReward() for _ in range(5)]
             print("[TEST REWARDS] ", testRewards)
             avgReward = np.mean(testRewards)
             print('Average test reward=' + str(avgReward))
             if avgReward > bestReward:
                 print('Best reward=' + str(avgReward))
-                self.actorModel.save('model_actor_{}_{}.hdf5'.format(iters, avgReward))
-                self.criticModel.save('model_critic_{}_{}.hdf5'.format(iters, avgReward))
+                self.actorModel.save('model_actor_{}.hdf5'.format(avgReward))
+                #self.criticModel.save('model_critic_{}.hdf5'.format(avgReward))
                 bestReward = avgReward
-            if bestReward > 0.9 and iters > maxIters:
+            if bestReward > self.maxScore or iters > maxIters:
                 endOfTrain = True
             iters += 1
-            self.newGame()
+            game.level(self.gameLevel)
+            game.ballThrown = True
         
-    
-    # Get the 2 models used for train
-    def getActorCriticModels(self, input_dims, output_dims):
-        # predicts the next action
+
+    # predicts the next action
+    def getActorModel(self, inputDims, outputDims):
+        '''
         actorModel = Sequential()
         actorModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
         actorModel.add(Dense(units=output_dims, activation='softmax', kernel_initializer='RandomNormal'))
-        actorModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')    
-        '''
-        actorModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
-            oldpolicy_probs=oldpolicyProbs,
-            advantages=advantages,
-            rewards=rewards,
-            values=values)])
-        '''
+        actorModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')   
+        ''' 
+        
+        stateInput = Input(shape=(inputDims,))
+        oldpolicyProbs = Input(shape=(1, outputDims,))
+        advantages = Input(shape=(1, 3,))
+        rewards = Input(shape=(1, 1,))
+        values = Input(shape=(1, 3,))
 
-        # evaluates the action
+        # Classification block
+        x = Dense(512, activation='relu', name='fc1')(stateInput)
+        x = Dense(256, activation='relu', name='fc2')(x)
+        outActions = Dense(outputDims, activation='softmax', name='predictions')(x)
+
+        actorModel = Model(inputs=[stateInput, oldpolicyProbs, advantages, rewards, values],
+                    outputs=[outActions])
+        actorModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
+            oldpolicyProbs,
+            advantages,
+            rewards,
+            values)])
+        
+        return actorModel
+        
+    # evaluates the action
+    def getCriticModel(self, inputDims, outputDims):
+        '''
         criticModel = Sequential()
-        criticModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
-        criticModel.add(Dense(units=output_dims, activation='tanh', kernel_initializer='RandomNormal'))  
+        criticModel.add(Dense(units=200,input_shape=(inputDims,), activation='relu', kernel_initializer='glorot_uniform'))
+        criticModel.add(Dense(units=outputDims, activation='tanh', kernel_initializer='RandomNormal'))  
         criticModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')
         '''     
-        criticModel.compile(optimizer=Adam(lr=1e-4), loss=[self.ppoLoss(
-            oldpolicy_probs=oldpolicyrobs,
-            advantages=advantages,
-            rewards=rewards,
-            values=values)])
-        '''
+        stateInput = Input(shape=(inputDims,))
+
+        # Classification block
+        x = Dense(512, activation='relu', name='fc1')(stateInput)
+        x = Dense(256, activation='relu', name='fc2')(x)
+        outActions = Dense(outputDims, activation='tanh')(x)
+
+        criticModel = Model(inputs=[stateInput], outputs=[outActions])
+        criticModel.compile(optimizer=Adam(lr=1e-4), loss='mse')
         
-        return actorModel, criticModel
+        return criticModel
 
 
     # computes reward over time (your action was correct if you win 3 turns after, for example)
@@ -166,38 +199,44 @@ class AI:
 
 
     # stabilizes the training process (to avoid unstoppable bad decision making) 
-    def ppoLoss(oldpolicy_probs, advantages, rewards, values):
+    def ppoLoss(self, oldpolicyProbs, advantages, rewards, values):
         # inner function to hide real computation
-        def loss(y_true, y_pred):
-            newpolicy_probs = y_pred
-            ratio = keras.backend.exp(keras.backend.log(newpolicy_probs + 1e-10) - keras.backend.log(oldpolicy_probs + 1e-10))
+        def loss(yTrue, yPred):
+            clippingVal = 0.2
+            criticDiscount = 0.5
+            entropyBeta = 0.001
+            newpolicyProbs = yPred
+            ratio = keras.backend.exp(keras.backend.log(newpolicyProbs + 1e-10) - keras.backend.log(oldpolicyProbs + 1e-10))
             p1 = ratio * advantages
-            p2 = keras.backend.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
-            actor_loss = -keras.backend.mean(keras.backend.minimum(p1, p2))
-            critic_loss = keras.backend.mean(keras.backend.square(rewards - values))
-            total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * keras.backend.mean(
-                -(newpolicy_probs * keras.backend.log(newpolicy_probs + 1e-10)))
-            return total_loss
+            p2 = keras.backend.clip(ratio, min_value=1 - clippingVal, max_value=1 + clippingVal) * advantages
+            actorLoss = -keras.backend.mean(keras.backend.minimum(p1, p2))
+            criticLoss = keras.backend.mean(keras.backend.square(rewards - values))
+            totalLoss = criticDiscount * criticLoss + actorLoss - entropyBeta * keras.backend.mean(
+                -(newpolicyProbs * keras.backend.log(newpolicyProbs + 1e-10)))
+            return totalLoss
 
         return loss
 
     # model evaluation
     def testReward(self):
-        self.newGame()
+        dummyN = np.zeros((1, 1, 3))
+        dummy1 = np.zeros((1, 1, 1))
+        game.level(self.gameLevel)
+        game.ballThrown = True
         state, _, _ = game.nextFrame()
-        done = False
+        isGameFinished = False
         totalReward = 0
         limit = 0
-        while not done:
-            stateInput = keras.backend.expand_dims(state, 0)
-            actionProbs = self.actorModel.predict([stateInput], steps=1)
+        while not isGameFinished:
+            inputState = keras.backend.expand_dims(state, 0)
+            actionProbs = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1)
             action = np.argmax(actionProbs)
             game.aiAction(action)
-            nextState, reward, done = game.nextFrame()
+            nextState, reward, isGameFinished = game.nextFrame()
             state = nextState
             totalReward += reward
             limit += 1
-            if limit > 20:
+            if limit > 1024:
                 break
         return totalReward
 

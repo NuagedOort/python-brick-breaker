@@ -8,6 +8,7 @@ import numpy as np
 import keras
 from keras.models import load_model
 import sys
+import keras.losses
 
 # Main class: inherit from tk.Canvas class
 class Game(tk.Canvas):
@@ -60,7 +61,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(5)
+        self.level(1)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -115,7 +116,7 @@ class Game(tk.Canvas):
 
     # This method, called each 1/60 of seconde, computes again
     # the properties of all elements (positions, collisions, effects...).
-    def nextFrame(self):
+    def nextFrameCycle(self, numberOfFrames):
         self.won = len(self.bricks) == 0
         if self.ballThrown and not(self.textDisplayed):
             self.moveBall()
@@ -125,15 +126,40 @@ class Game(tk.Canvas):
             
         self.updateEffects()
 
-        self.aiAction()
+        #self.aiAction()
 
         if not(self.textDisplayed):
             if self.won:
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
             elif self.losed:
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
+        
+
+        if numberOfFrames < 10:
+            numberOfFrames = numberOfFrames + 1
+            self.after(int(1000/60), self.nextFrameCycle(numberOfFrames))
+
+
+    def nextFrame(self):
+        self.nextFrameCycle(0)
+
+        # Compute coords
+        ballCoords = self.coords(self.ball)
+        barCoords = self.coords(self.bar)
+
+        return self.getState(
+            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
+            (self.ballAngle % (2*math.pi))/(2*math.pi), 
+            self.ballSpeed / 10.0, 
+            self.ballRadius / self.ballRadiusEffect,
+            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
+            self.barSpeed / 10.0,
+            self.barWidth / self.barWidthEffect,
+            1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
+            self.brickListOneHot,
+            self.score
+            )
        
-        self.after(int(1000/60), self.nextFrame)
 
     
     # This method call the game AI and act according to given results
@@ -333,6 +359,25 @@ class Game(tk.Canvas):
                 
         return collisionCounter
 
+# stabilizes the training process (to avoid unstoppable bad decision making) 
+def ppoLoss(self, oldpolicyProbs, advantages, rewards, values):
+    # inner function to hide real computation
+    def loss(yTrue, yPred):
+        clippingVal = 0.2
+        criticDiscount = 0.5
+        entropyBeta = 0.001
+        newpolicyProbs = yPred
+        ratio = keras.backend.exp(keras.backend.log(newpolicyProbs + 1e-10) - keras.backend.log(oldpolicyProbs + 1e-10))
+        p1 = ratio * advantages
+        p2 = keras.backend.clip(ratio, min_value=1 - clippingVal, max_value=1 + clippingVal) * advantages
+        actorLoss = -keras.backend.mean(keras.backend.minimum(p1, p2))
+        criticLoss = keras.backend.mean(keras.backend.square(rewards - values))
+        totalLoss = criticDiscount * criticLoss + actorLoss - entropyBeta * keras.backend.mean(
+            -(newpolicyProbs * keras.backend.log(newpolicyProbs + 1e-10)))
+        return totalLoss
+
+    return loss
+
 
 def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList):
     ballX, ballY = ballPos
@@ -342,7 +387,7 @@ def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed,
     inputState = keras.backend.expand_dims(currenState, 0)
     actionDist = model.predict([inputState], steps=1)
 
-    action = np.random.choice(3, p=actionDist[0, :])
+    action = np.argmax(actionDist)
 
     return action
 
@@ -368,6 +413,7 @@ def eventsRelease(event):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
+        keras.losses.custom_loss = ppoLoss
         model = load_model(sys.argv[1])
 
         # Starting up of the game
