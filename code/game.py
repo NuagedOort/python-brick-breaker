@@ -136,7 +136,7 @@ class Game(tk.Canvas):
                 self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
         
 
-        if numberOfFrames < 10:
+        if numberOfFrames < 5:
             numberOfFrames = numberOfFrames + 1
             self.after(int(1000/60), self.nextFrameCycle(numberOfFrames))
 
@@ -149,11 +149,11 @@ class Game(tk.Canvas):
         barCoords = self.coords(self.bar)
 
         return self.getState(
-            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
+            ((ballCoords[0]+ballCoords[2])/(2*self.screenWidth), (ballCoords[1]+ballCoords[3])/(2*self.screenHeight)), # Normalized BallPos
             (self.ballAngle % (2*math.pi))/(2*math.pi), 
             self.ballSpeed / 10.0, 
             self.ballRadius / self.ballRadiusEffect,
-            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
+            ((barCoords[0]+barCoords[2])/(2*self.screenWidth), (barCoords[1]+barCoords[3])/(2*self.screenHeight)),     # Normalized BarPos
             self.barSpeed / 10.0,
             self.barWidth / self.barWidthEffect,
             1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
@@ -166,39 +166,28 @@ class Game(tk.Canvas):
         ballX, ballY = ballPos
         barX, barY = barPos
         currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
+
+
+        if self.won or self.losed:
+            currentReward = self.score
+        else:
+            currentReward = 0
         
+        '''
         if self.score == self.lastScore: # no changement
             currentReward = -0.5
         elif self.score > self.lastScore: # good movement
-            currentReward = 2
+            currentReward = 20
             self.lastScore = self.score
         else: # bad movement
-            currentReward = -1
+            currentReward = -10
             self.lastScore = self.score
-
+        '''
         return currenState, currentReward, (self.losed or self.won)
 
     
     # This method call the game AI and act according to given results
     def aiAction(self, barMovement):
-        '''
-        # Compute coords
-        ballCoords = self.coords(self.ball)
-        barCoords = self.coords(self.bar)
-
-        barMovement = self.ai.computeMovement(
-            ((ballCoords[0]+ballCoords[2])/(2*self.screenWidth), (ballCoords[1]+ballCoords[3])/(2*self.screenHeight)), # Normalized BallPos
-            (self.ballAngle % (2*math.pi))/(2*math.pi), 
-            self.ballSpeed / 10.0, 
-            self.ballRadius / self.ballRadiusEffect,
-            ((barCoords[0]+barCoords[2])/(2*self.screenWidth), (barCoords[1]+barCoords[3])/(2*self.screenHeight)),     # Normalized BarPos
-            self.barSpeed / 10.0,
-            self.barWidth / self.barWidthEffect,
-            1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
-            self.brickListOneHot,
-            self.score
-            )
-        '''
 
         if self.keyPressed[0]:
             self.moveBar(-game.barSpeed)

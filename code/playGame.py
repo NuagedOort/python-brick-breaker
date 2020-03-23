@@ -8,7 +8,6 @@ import numpy as np
 import keras
 from keras.models import load_model
 import sys
-import keras.losses
 
 # Main class: inherit from tk.Canvas class
 class Game(tk.Canvas):
@@ -51,7 +50,10 @@ class Game(tk.Canvas):
     # Screen properties
     screenHeight = 500
     screenWidth = bricksWidth*bricksNbByLine
-    
+
+    # Ai properties
+    numberOfFrames = 0
+
     # This method initializes some attributes: the ball, the bar...
     def __init__(self, root):
         tk.Canvas.__init__(self, root, bg="#ffffff", bd=0, highlightthickness=0, relief="ridge", width=self.screenWidth, height=self.screenHeight)
@@ -61,7 +63,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(1)
+        self.level(6)
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
@@ -116,52 +118,33 @@ class Game(tk.Canvas):
 
     # This method, called each 1/60 of seconde, computes again
     # the properties of all elements (positions, collisions, effects...).
-    def nextFrameCycle(self, numberOfFrames):
+    def nextFrame(self):
         self.won = len(self.bricks) == 0
         if self.ballThrown and not(self.textDisplayed):
             self.moveBall()
 
         if not(self.textDisplayed):
             self.updateTime()
-            
+
         self.updateEffects()
 
-        #self.aiAction()
+        if self.numberOfFrames == 5:
+            self.aiAction()
+            self.numberOfFrames = 0
+        else:
+            self.numberOfFrames = self.numberOfFrames + 1
 
         if not(self.textDisplayed):
             if self.won:
                 self.displayText("WON!", callback = lambda: self.level(self.levelNum+1))
             elif self.losed:
-                self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
-        
+                #self.displayText("LOST!", callback = lambda: self.level(self.levelNum))
+                self.level(self.levelNum)
+                self.ballThrown = True
 
-        if numberOfFrames < 10:
-            numberOfFrames = numberOfFrames + 1
-            self.after(int(1000/60), self.nextFrameCycle(numberOfFrames))
+        self.after(int(1000/60), self.nextFrame)
 
 
-    def nextFrame(self):
-        self.nextFrameCycle(0)
-
-        # Compute coords
-        ballCoords = self.coords(self.ball)
-        barCoords = self.coords(self.bar)
-
-        return self.getState(
-            ((ballCoords[0]+ballCoords[2])/2*self.screenWidth, (ballCoords[1]+ballCoords[3])/2*self.screenHeight), # Normalized BallPos
-            (self.ballAngle % (2*math.pi))/(2*math.pi), 
-            self.ballSpeed / 10.0, 
-            self.ballRadius / self.ballRadiusEffect,
-            ((barCoords[0]+barCoords[2])/2*self.screenWidth, (barCoords[1]+barCoords[3])/2*self.screenHeight),     # Normalized BarPos
-            self.barSpeed / 10.0,
-            self.barWidth / self.barWidthEffect,
-            1.0 if self.shieldVisibility else 0,    # If shield activated return 1 else, 0. Alternatively, but heavier : 1.0 if self.itemcget(self.shield, "state") == "hidden" else 0
-            self.brickListOneHot,
-            self.score
-            )
-       
-
-    
     # This method call the game AI and act according to given results
     def aiAction(self):
         # Compute coords
@@ -199,7 +182,7 @@ class Game(tk.Canvas):
             x = -barCoords[0]
         elif barCoords[2] > self.screenWidth - 10 and x > 0:
             x = self.screenWidth - barCoords[2]
-        
+
         self.move(self.bar, x, 0)
         if not(self.ballThrown):
             self.move(self.ball, x, 0)
@@ -212,7 +195,7 @@ class Game(tk.Canvas):
     def moveBall(self):
         self.move(self.ballNext, self.ballSpeed*math.cos(self.ballAngle), -self.ballSpeed*math.sin(self.ballAngle))
         ballNextCoords = self.coords(self.ballNext)
-        
+
         # Collisions computation between ball and bricks
         i = 0
         while i < len(self.bricks):
@@ -241,7 +224,7 @@ class Game(tk.Canvas):
                         self.ballAngle = math.radians(180) - self.ballAngle     # I mean, eew
                     if collision == 2 or collision == 4:
                         self.ballAngle = -self.ballAngle
-                
+
                 # If the brick is red, it becomes orange.
                 if brickColor == self.bricksColors["r"]:
                     self.itemconfig(self.bricks[i], fill=self.bricksColors["o"])
@@ -288,7 +271,7 @@ class Game(tk.Canvas):
                 self.effects[key][1] -= 1
             if self.effects[key][1] == 0:
                 self.effects[key][0] = 0
-        
+
         # "ballFire" effect allows the ball to destroy bricks without boucing on them.
         if self.effects["ballFire"][0]:
             self.itemconfig(self.ball, fill=self.bricksColors["p"])
@@ -307,7 +290,7 @@ class Game(tk.Canvas):
             self.ballRadius += diff*10
             coords = self.coords(self.ball)
             self.coords(self.ball, tk._flatten((coords[0]-diff*10, coords[1]-diff*10, coords[2]+diff*10, coords[3]+diff*10)))
-        
+
         # "shield" effect allows the ball to bounce once
         # at the bottom of the screen (it's like an additional life).
         if self.effects["shield"][0]:
@@ -330,8 +313,8 @@ class Game(tk.Canvas):
         self.textContainer = self.create_rectangle(0, 0, self.screenWidth, self.screenHeight, fill="#ffffff", width=0, stipple="gray50")
         self.text = self.create_text(self.screenWidth/2, self.screenHeight/2, text=text, font=("Arial", 25), justify="center")
         if hide:
-            self.hideText()
             #self.after(3000, self.hideText)
+            self.hideText()
         if callback != None:
             self.after(3000, callback)
 
@@ -347,7 +330,7 @@ class Game(tk.Canvas):
 
         objectCoords = self.coords(el1)
         obstacleCoords = self.coords(el2)
-        
+
         if objectCoords[2] < obstacleCoords[0] + 5:
             collisionCounter = 1
         if objectCoords[3] < obstacleCoords[1] + 5:
@@ -356,27 +339,8 @@ class Game(tk.Canvas):
             collisionCounter = 3
         if objectCoords[1] > obstacleCoords[3] - 5:
             collisionCounter = 4
-                
+
         return collisionCounter
-
-# stabilizes the training process (to avoid unstoppable bad decision making) 
-def ppoLoss(self, oldpolicyProbs, advantages, rewards, values):
-    # inner function to hide real computation
-    def loss(yTrue, yPred):
-        clippingVal = 0.2
-        criticDiscount = 0.5
-        entropyBeta = 0.001
-        newpolicyProbs = yPred
-        ratio = keras.backend.exp(keras.backend.log(newpolicyProbs + 1e-10) - keras.backend.log(oldpolicyProbs + 1e-10))
-        p1 = ratio * advantages
-        p2 = keras.backend.clip(ratio, min_value=1 - clippingVal, max_value=1 + clippingVal) * advantages
-        actorLoss = -keras.backend.mean(keras.backend.minimum(p1, p2))
-        criticLoss = keras.backend.mean(keras.backend.square(rewards - values))
-        totalLoss = criticDiscount * criticLoss + actorLoss - entropyBeta * keras.backend.mean(
-            -(newpolicyProbs * keras.backend.log(newpolicyProbs + 1e-10)))
-        return totalLoss
-
-    return loss
 
 
 def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed, barSize, shield, brickList):
@@ -385,11 +349,15 @@ def computeMovement(ballPos, ballAngle, ballSpeed, ballRadius, barPos, barSpeed,
     currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
 
     inputState = keras.backend.expand_dims(currenState, 0)
-    actionDist = model.predict([inputState], steps=1)
+    dummyN = np.zeros((1, 1, 3))
+    dummy1 = np.zeros((1, 1, 1))
+    fitState = np.array(inputState)
+    actionDist = model.predict([fitState], steps=1)
 
     action = np.argmax(actionDist)
 
     return action
+
 
 # This function is called on key down.
 def eventsPress(event):
@@ -411,10 +379,10 @@ def eventsRelease(event):
     elif event.keysym == "Right":
         game.keyPressed[1] = 0
 
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        keras.losses.custom_loss = ppoLoss
-        model = load_model(sys.argv[1])
+        model = load_model(sys.argv[1], custom_objects={'loss': 'mse'})
 
         # Starting up of the game
         root = tk.Tk()
@@ -426,6 +394,7 @@ if __name__ == "__main__":
         game.ballThrown = True
 
         root.mainloop()  
-    
+
     else:
-        print('INPUT ERROR: no file name provided.')
+        print('INPUT ERROR: no file name provided.') 
+

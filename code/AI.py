@@ -2,7 +2,7 @@ import keras
 from keras.models import Sequential, Model
 from keras.layers import Activation, Dense, Input
 from keras.optimizers import Adam
-from keras.callbacks import TensorBoard
+import tensorflow
 import numpy as np
 import tkinter as tk
 import os
@@ -13,17 +13,16 @@ class AI:
         # training variables
         self.gamma = 0.99 #discountingFactor
         self.lmbda = 0.95 #smoothing parameter
-        self.gameLevel = 1
-        self.maxScore = 30 #number of bricks according to the level
+        self.maxScore = 30
 
 
     def train(self):
-        game.level(self.gameLevel)
+        game.level(np.random.choice(7))
         game.ballThrown = True
         initialState, _, _ = game.nextFrame()
     
         numberOfActions = 3
-        ppoSteps = 500
+        ppoSteps = 5000
         endOfTrain = False
         bestReward = - 1000
         iters = 0
@@ -48,12 +47,12 @@ class AI:
 
             # collects experiences
             for i in range(ppoSteps) :
-                if i % 10 == 0 :
-                    print(i)
 
                 inputState = keras.backend.expand_dims(initialState, 0)
                 #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
                 actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
+                #if i % 100 == 0 :
+                    #print(i, actionDist)
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
                 #print("[ACTIONS_PROBA]", actionDist)
                 action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
@@ -74,7 +73,7 @@ class AI:
                 actionsProbs.append(actionDist)
 
                 if isGameFinished:
-                    game.level(self.gameLevel)
+                    game.level(np.random.choice(7))
                     game.ballThrown = True
                     initialState, _, _ = game.nextFrame()
                 else:
@@ -122,15 +121,15 @@ class AI:
             print("[TEST REWARDS] ", testRewards)
             avgReward = np.mean(testRewards)
             print('Average test reward=' + str(avgReward))
-            if avgReward > bestReward:
+            if avgReward >= bestReward:
                 print('Best reward=' + str(avgReward))
                 self.actorModel.save('model_actor_{}.hdf5'.format(avgReward))
                 #self.criticModel.save('model_critic_{}.hdf5'.format(avgReward))
                 bestReward = avgReward
-            if bestReward > self.maxScore or iters > maxIters:
+            if bestReward > self.maxScore:
                 endOfTrain = True
             iters += 1
-            game.level(self.gameLevel)
+            game.level(np.random.choice(7))
             game.ballThrown = True
         
 
@@ -202,6 +201,8 @@ class AI:
     def ppoLoss(self, oldpolicyProbs, advantages, rewards, values):
         # inner function to hide real computation
         def loss(yTrue, yPred):
+            y_true = tensorflow.Print(y_true, [y_true], 'y_true: ')
+            y_pred = tensorflow.Print(y_pred, [y_pred], 'y_pred: ')
             clippingVal = 0.2
             criticDiscount = 0.5
             entropyBeta = 0.001
@@ -221,7 +222,7 @@ class AI:
     def testReward(self):
         dummyN = np.zeros((1, 1, 3))
         dummy1 = np.zeros((1, 1, 1))
-        game.level(self.gameLevel)
+        game.level(np.random.choice(7))
         game.ballThrown = True
         state, _, _ = game.nextFrame()
         isGameFinished = False
