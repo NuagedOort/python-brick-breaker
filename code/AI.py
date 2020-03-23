@@ -2,7 +2,6 @@ import keras
 from keras.models import Sequential, Model
 from keras.layers import Activation, Dense, Input
 from keras.optimizers import Adam
-import tensorflow
 import numpy as np
 import tkinter as tk
 import os
@@ -201,8 +200,6 @@ class AI:
     def ppoLoss(self, oldpolicyProbs, advantages, rewards, values):
         # inner function to hide real computation
         def loss(yTrue, yPred):
-            y_true = tensorflow.Print(y_true, [y_true], 'y_true: ')
-            y_pred = tensorflow.Print(y_pred, [y_pred], 'y_pred: ')
             clippingVal = 0.2
             criticDiscount = 0.5
             entropyBeta = 0.001
