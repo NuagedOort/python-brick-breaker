@@ -168,7 +168,9 @@ class Game(tk.Canvas):
         currenState = [ballX, ballY, ballAngle, ballSpeed, ballRadius, barX, barY, barSpeed, barSize, shield] + brickList
 
 
-        if self.won or self.losed:
+        if self.won:
+            currentReward = self.score*2
+        elif self.losed:
             currentReward = self.score
         else:
             currentReward = 0
