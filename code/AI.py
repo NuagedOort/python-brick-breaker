@@ -2,7 +2,7 @@ import keras
 from keras.models import Sequential, Model
 from keras.layers import Activation, Dense, Input
 from keras.optimizers import Adam
-import tensorflow
+import tensorflow as tf
 import numpy as np
 import tkinter as tk
 import os
@@ -47,7 +47,8 @@ class AI:
 
             # collects experiences
             for i in range(ppoSteps) :
-
+                if i%100 == 0:
+                    print("Step {}".format(i))
                 inputState = keras.backend.expand_dims(initialState, 0)
                 #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
                 actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
@@ -135,6 +136,7 @@ class AI:
 
     # predicts the next action
     def getActorModel(self, inputDims, outputDims):
+        print("GetActorModel")
         '''
         actorModel = Sequential()
         actorModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
@@ -165,6 +167,7 @@ class AI:
         
     # evaluates the action
     def getCriticModel(self, inputDims, outputDims):
+        print("getCriticModel")
         '''
         criticModel = Sequential()
         criticModel.add(Dense(units=200,input_shape=(inputDims,), activation='relu', kernel_initializer='glorot_uniform'))
@@ -186,6 +189,7 @@ class AI:
 
     # computes reward over time (your action was correct if you win 3 turns after, for example)
     def getAdvantages(self, values, masks, rewards):
+        print("GetAdvantages")
         advantages = []
         gae = 0 #Generalized Advantage Estimation (method used)
         for i in reversed(range(len(rewards))):
@@ -243,6 +247,9 @@ class AI:
 
 
 if __name__ == "__main__":
+    configT = tf.ConfigProto()
+    configT.gpu_options.allow_growth = True
+    session = tf.Session(config=configT)
     ai = AI()
     # Starting up of the game
     root = tk.Tk()
