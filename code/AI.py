@@ -50,11 +50,11 @@ class AI:
                 inputState = keras.backend.expand_dims(initialState, 0)
                 #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
                 actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
-                #if i % 100 == 0 :
-                    #print(i, actionDist)
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
                 #print("[ACTIONS_PROBA]", actionDist)
                 action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
+                if i % 500 == 0 :
+                    print("i: ", i, "// actions: ", actionDist, action)
                 #print("[ACTION]", action)
                 actionOnehot = np.zeros(numberOfActions)
                 actionOnehot[action] = 1 #one-hot representation of the action
@@ -81,16 +81,8 @@ class AI:
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
             returns, advantages = self.getAdvantages(values, masks, rewards)
-            '''
-            fitStates = np.asarray(states)
-            actorLoss = self.actorModel.fit(
-                fitStates,
-                actions,
-                verbose=False,
-                shuffle=True,
-                epochs=8
-            )
-            '''
+
+            # learning
             fitStates = np.array(states)
             fitActionsProbs = np.array(actionsProbs)
             fitAdv = np.array(advantages)
@@ -100,23 +92,15 @@ class AI:
                 [fitStates, fitActionsProbs, fitAdv, fitRewards, fitValues],
                 [(np.reshape(actionsOnehot, newshape=(-1, numberOfActions)))], 
                 verbose=False, shuffle=True, epochs=8)
-            
-            '''
-            self.criticModel.fit(
-                fitStates,
-                actions,
-                verbose=False,
-                shuffle=True,
-                epochs=8
-            )
-            '''
+
+
             self.criticModel.fit(
                 [np.array(states)], 
-                [np.reshape(returns, newshape=(-1,3))], 
+                [np.reshape(returns, newshape=(-1,numberOfActions))], 
                 verbose=False, shuffle=True, epochs=8)
 
-            #print("REWARDS ", rewards)
-            testRewards = [self.testReward() for _ in range(5)]
+            # tests
+            testRewards = [self.testReward(numberOfActions) for _ in range(5)]
             print("[TEST REWARDS] ", testRewards)
             avgReward = np.mean(testRewards)
             print('Average test reward=' + str(avgReward))
@@ -128,24 +112,19 @@ class AI:
             if bestReward > self.maxScore:
                 endOfTrain = True
             iters += 1
+
+            # new game for next iteration
             game.level(np.random.choice(7))
             game.ballThrown = True
         
 
     # predicts the next action
     def getActorModel(self, inputDims, outputDims):
-        '''
-        actorModel = Sequential()
-        actorModel.add(Dense(units=200,input_shape=(input_dims,), activation='relu', kernel_initializer='glorot_uniform'))
-        actorModel.add(Dense(units=output_dims, activation='softmax', kernel_initializer='RandomNormal'))
-        actorModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')   
-        ''' 
-        
         stateInput = Input(shape=(inputDims,))
         oldpolicyProbs = Input(shape=(1, outputDims,))
-        advantages = Input(shape=(1, 3,))
+        advantages = Input(shape=(1, outputDims,))
         rewards = Input(shape=(1, 1,))
-        values = Input(shape=(1, 3,))
+        values = Input(shape=(1, outputDims,))
 
         # Classification block
         x = Dense(512, activation='relu', name='fc1')(stateInput)
@@ -163,13 +142,7 @@ class AI:
         return actorModel
         
     # evaluates the action
-    def getCriticModel(self, inputDims, outputDims):
-        '''
-        criticModel = Sequential()
-        criticModel.add(Dense(units=200,input_shape=(inputDims,), activation='relu', kernel_initializer='glorot_uniform'))
-        criticModel.add(Dense(units=outputDims, activation='tanh', kernel_initializer='RandomNormal'))  
-        criticModel.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy')
-        '''     
+    def getCriticModel(self, inputDims, outputDims):    
         stateInput = Input(shape=(inputDims,))
 
         # Classification block
@@ -216,8 +189,8 @@ class AI:
         return loss
 
     # model evaluation
-    def testReward(self):
-        dummyN = np.zeros((1, 1, 3))
+    def testReward(self, numberOfActions):
+        dummyN = np.zeros((1, 1, numberOfActions))
         dummy1 = np.zeros((1, 1, 1))
         game.level(np.random.choice(7))
         game.ballThrown = True

@@ -63,7 +63,7 @@ class Game(tk.Canvas):
         self.bar = self.create_rectangle(0, 0, 0, 0, fill="#7f8c8d", width=0)
         self.ball = self.create_oval(0, 0, 0, 0, width=0)
         self.ballNext = self.create_oval(0, 0, 0, 0, width=0, state="hidden")
-        self.level(6)
+        self.level(np.random.choice(7))
         self.nextFrame()
 
     # This method, called each time a level is loaded or reloaded,
