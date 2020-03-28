@@ -190,16 +190,11 @@ class Game(tk.Canvas):
     
     # This method call the game AI and act according to given results
     def aiAction(self, barMovement):
-
-        if self.keyPressed[0]:
-            self.moveBar(-game.barSpeed)
-        elif self.keyPressed[1]:
-            self.moveBar(game.barSpeed)
-        elif barMovement == 0 :
+        if barMovement < 0 :
             self.moveBar(-self.barSpeed)
-        elif barMovement == 1:
+        elif barMovement > 0:
             self.moveBar(self.barSpeed)
-        # is barMoment == 2: do nothing
+        # is barMoment == 0: do nothing
 
     # This method, called when left or right arrows are pressed,
     # moves "x" pixels horizontally the bar, keeping it in the screen.

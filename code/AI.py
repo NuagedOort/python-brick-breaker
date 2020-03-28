@@ -20,18 +20,18 @@ class AI:
         game.ballThrown = True
         initialState, _, _ = game.nextFrame()
     
-        numberOfActions = 3
-        ppoSteps = 5000
+        outputLength = 1
+        ppoSteps = 10
         endOfTrain = False
         bestReward = - 1000
         iters = 0
         maxIters = 50
 
-        dummyN = np.zeros((1, 1, numberOfActions))
+        dummyN = np.zeros((1, 1, outputLength))
         dummy1 = np.zeros((1, 1, 1))
 
-        self.actorModel = self.getActorModel(len(initialState), numberOfActions)
-        self.criticModel = self.getCriticModel(len(initialState), numberOfActions)
+        self.actorModel = self.getActorModel(len(initialState), outputLength)
+        self.criticModel = self.getCriticModel(len(initialState), outputLength)
 
 
         while not endOfTrain:
@@ -41,23 +41,14 @@ class AI:
             values = [] #from the critic model
             masks = [] #used to separate each game
             rewards = [] #each reward associating with each state
-            actionsProbs = [] #probability for each action for each turn
-            actionsOnehot = [] #each action taken but in one-hot form
 
             # collects experiences
             for i in range(ppoSteps) :
 
                 inputState = keras.backend.expand_dims(initialState, 0)
-                #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
-                actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
+                action = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
-                #print("[ACTIONS_PROBA]", actionDist)
-                action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
-                if i % 500 == 0 :
-                    print("i: ", i, "// actions: ", actionDist, action)
-                #print("[ACTION]", action)
-                actionOnehot = np.zeros(numberOfActions)
-                actionOnehot[action] = 1 #one-hot representation of the action
+                print("i: ", i, "// action: ", action)
 
                 game.aiAction(action)
                 nextState, reward, isGameFinished = game.nextFrame()
@@ -65,11 +56,9 @@ class AI:
 
                 states.append(initialState)
                 actions.append(action)
-                actionsOnehot.append(actionOnehot)
                 values.append(qValue)
                 masks.append(mask)
                 rewards.append(reward)
-                actionsProbs.append(actionDist)
 
                 if isGameFinished:
                     game.level(np.random.choice(7))
@@ -84,23 +73,24 @@ class AI:
 
             # learning
             fitStates = np.array(states)
-            fitActionsProbs = np.array(actionsProbs)
+            fitActions= np.array(actions)
             fitAdv = np.array(advantages)
             fitRewards = np.reshape(rewards, newshape=(-1, 1, 1))
             fitValues = np.array(values[:-1])
+            print("fit")
             self.actorModel.fit(
-                [fitStates, fitActionsProbs, fitAdv, fitRewards, fitValues],
-                [(np.reshape(actionsOnehot, newshape=(-1, numberOfActions)))], 
+                [fitStates, fitActions, fitAdv, fitRewards, fitValues],
+                [(np.reshape(actions, newshape=(-1, outputLength)))], 
                 verbose=False, shuffle=True, epochs=8)
 
-
+            print("fit")
             self.criticModel.fit(
                 [np.array(states)], 
-                [np.reshape(returns, newshape=(-1,numberOfActions))], 
+                [np.reshape(returns, newshape=(-1,outputLength))], 
                 verbose=False, shuffle=True, epochs=8)
-
+            print("fit")
             # tests
-            testRewards = [self.testReward(numberOfActions) for _ in range(5)]
+            testRewards = [self.testReward(outputLength) for _ in range(5)]
             print("[TEST REWARDS] ", testRewards)
             avgReward = np.mean(testRewards)
             print('Average test reward=' + str(avgReward))
@@ -129,7 +119,7 @@ class AI:
         # Classification block
         x = Dense(512, activation='relu', name='fc1')(stateInput)
         x = Dense(256, activation='relu', name='fc2')(x)
-        outActions = Dense(outputDims, activation='softmax', name='predictions')(x)
+        outActions = Dense(outputDims, activation='tanh', name='predictions')(x)
 
         actorModel = Model(inputs=[stateInput, oldpolicyProbs, advantages, rewards, values],
                     outputs=[outActions])
@@ -189,8 +179,8 @@ class AI:
         return loss
 
     # model evaluation
-    def testReward(self, numberOfActions):
-        dummyN = np.zeros((1, 1, numberOfActions))
+    def testReward(self, outputDim):
+        dummyN = np.zeros((1, 1, outputDim))
         dummy1 = np.zeros((1, 1, 1))
         game.level(np.random.choice(7))
         game.ballThrown = True
@@ -200,8 +190,7 @@ class AI:
         limit = 0
         while not isGameFinished:
             inputState = keras.backend.expand_dims(state, 0)
-            actionProbs = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1)
-            action = np.argmax(actionProbs)
+            action = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1)
             game.aiAction(action)
             nextState, reward, isGameFinished = game.nextFrame()
             state = nextState
