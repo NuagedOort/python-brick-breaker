@@ -21,7 +21,7 @@ class AI:
         initialState, _, _ = game.nextFrame()
     
         outputLength = 1
-        ppoSteps = 10
+        ppoSteps = 1000
         endOfTrain = False
         bestReward = - 1000
         iters = 0
@@ -48,7 +48,8 @@ class AI:
                 inputState = keras.backend.expand_dims(initialState, 0)
                 action = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
                 qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
-                print("i: ", i, "// action: ", action)
+                if i % 200 == 0:
+                    print("i: ", i, "// action: ", action)
 
                 game.aiAction(action)
                 nextState, reward, isGameFinished = game.nextFrame()
@@ -77,18 +78,16 @@ class AI:
             fitAdv = np.array(advantages)
             fitRewards = np.reshape(rewards, newshape=(-1, 1, 1))
             fitValues = np.array(values[:-1])
-            print("fit")
+            print("[FIT]")
             self.actorModel.fit(
                 [fitStates, fitActions, fitAdv, fitRewards, fitValues],
                 [(np.reshape(actions, newshape=(-1, outputLength)))], 
                 verbose=False, shuffle=True, epochs=8)
 
-            print("fit")
             self.criticModel.fit(
                 [np.array(states)], 
                 [np.reshape(returns, newshape=(-1,outputLength))], 
                 verbose=False, shuffle=True, epochs=8)
-            print("fit")
             # tests
             testRewards = [self.testReward(outputLength) for _ in range(5)]
             print("[TEST REWARDS] ", testRewards)
@@ -180,6 +179,7 @@ class AI:
 
     # model evaluation
     def testReward(self, outputDim):
+        print("[TRAIN]")
         dummyN = np.zeros((1, 1, outputDim))
         dummy1 = np.zeros((1, 1, 1))
         game.level(np.random.choice(7))
