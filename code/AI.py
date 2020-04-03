@@ -19,9 +19,9 @@ class AI:
         game.level(np.random.choice(7))
         game.ballThrown = True
         initialState, _, _ = game.nextFrame()
-    
-        numberOfActions = 3
-        ppoSteps = 5000
+        
+        numberOfActions = 2
+        numberOfGames = 10
         endOfTrain = False
         bestReward = - 1000
         iters = 0
@@ -29,6 +29,8 @@ class AI:
 
         dummyN = np.zeros((1, 1, numberOfActions))
         dummy1 = np.zeros((1, 1, 1))
+
+        maxOfFrames = 250
 
         self.actorModel = self.getActorModel(len(initialState), numberOfActions)
         self.criticModel = self.getCriticModel(len(initialState), numberOfActions)
@@ -45,39 +47,42 @@ class AI:
             actionsOnehot = [] #each action taken but in one-hot form
 
             # collects experiences
-            for i in range(ppoSteps) :
+            for i in range(numberOfGames) :
+                game.level(np.random.choice(7))
+                game.ballThrown = True
+                initialState, _, _ = game.nextFrame()
+                isGameFinished = False
+                numberOfFrames = 0
 
-                inputState = keras.backend.expand_dims(initialState, 0)
-                #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
-                actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
-                qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
-                #print("[ACTIONS_PROBA]", actionDist)
-                action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
-                if i % 500 == 0 :
-                    print("i: ", i, "// actions: ", actionDist, action)
-                #print("[ACTION]", action)
-                actionOnehot = np.zeros(numberOfActions)
-                actionOnehot[action] = 1 #one-hot representation of the action
+                print("Game n°", i)
 
-                game.aiAction(action)
-                nextState, reward, isGameFinished = game.nextFrame()
-                mask = not isGameFinished
+                while not isGameFinished and numberOfFrames < maxOfFrames:
+                    inputState = keras.backend.expand_dims(initialState, 0)
+                    #print("[BALL] ", initialState[0], initialState[1], "[BAR] ", initialState[5], initialState[6])
+                    actionDist = self.actorModel.predict([inputState, dummyN, dummyN, dummy1, dummyN], steps=1) #returns a probability for each action
+                    qValue = self.criticModel.predict([inputState], steps=1) #gets the evaluation of the current state
+                    #print("[ACTIONS_PROBA]", actionDist)
+                    action = np.random.choice(numberOfActions, p=actionDist[0, :]) #get a random action according to the probas
+                    #print("[ACTION]", action)
+                    actionOnehot = np.zeros(numberOfActions)
+                    actionOnehot[action] = 1 #one-hot representation of the action
 
-                states.append(initialState)
-                actions.append(action)
-                actionsOnehot.append(actionOnehot)
-                values.append(qValue)
-                masks.append(mask)
-                rewards.append(reward)
-                actionsProbs.append(actionDist)
+                    game.aiAction(action)
+                    nextState, reward, isGameFinished = game.nextFrame()
+                    mask = not isGameFinished
 
-                if isGameFinished:
-                    game.level(np.random.choice(7))
-                    game.ballThrown = True
-                    initialState, _, _ = game.nextFrame()
-                else:
+                    states.append(initialState)
+                    actions.append(action)
+                    actionsOnehot.append(actionOnehot)
+                    values.append(qValue)
+                    masks.append(mask)
+                    rewards.append(reward)
+                    actionsProbs.append(actionDist)
+
+                    numberOfFrames = numberOfFrames + 1
                     initialState = nextState
                 
+            
             qValue = self.criticModel.predict(inputState, steps=1)
             values.append(qValue)
             returns, advantages = self.getAdvantages(values, masks, rewards)
